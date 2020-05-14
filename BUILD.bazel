@@ -124,10 +124,10 @@ container_image(
     ],
 )
 
-docker_push(
-    name = "simhospital_image_push",
-    image = ":simhospital_container_image",
-    registry = "gcr.io",
-    repository = "<your_repository_here>/simhospital",
-    tag = "latest",
-)
+#docker_push(
+#    name = "simhospital_image_push",
+#    image = ":simhospital_container_image",
+#    registry = "gcr.io",
+#    repository = "<your_repository_here>/simhospital",
+#    tag = "latest",
+#)
