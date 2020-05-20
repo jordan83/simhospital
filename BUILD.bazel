@@ -128,6 +128,6 @@ docker_push(
     name = "simhospital_image_push",
     image = ":simhospital_container_image",
     registry = "gcr.io",
-    repository = "jstinson-test/simhospital",
+    repository = "$PROJECT/simhospital",
     tag = "latest",
 )
