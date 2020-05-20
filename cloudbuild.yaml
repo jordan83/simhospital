@@ -5,7 +5,7 @@ steps:
   args: ['run', ':simhospital_container_image']
 # Re-tag the image to something in your project's gcr.io repository.
 - name: gcr.io/cloud-builders/docker
-  args: ['tag', ':simhospital_container_image', 'gcr.io/$PROJECT_ID/simhospital']
+  args: ['tag', 'bazel:simhospital_container_image', 'gcr.io/$PROJECT_ID/simhospital']
 # Push the image.
 images: ['gcr.io/$PROJECT_ID/simhospital']
 timeout: 3600s
