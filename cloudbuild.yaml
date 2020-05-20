@@ -4,7 +4,7 @@ steps:
 - name: gcr.io/cloud-builders/bazel
   args: ['run', ':simhospital_container_image']
 # Re-tag the image to the public image tag.
-- name: docker
+- name: gcr.io/cloud-builders/docker
   args: ['tag', 'bazel:simhospital_container_image', 'gcr.io/$PROJECT_ID/simhospital:$COMMIT_SHA']
 # Push the image.
 images: ['gcr.io/$PROJECT_ID/simhospital:$COMMIT_SHA']
