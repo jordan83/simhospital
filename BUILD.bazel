@@ -123,11 +123,3 @@ container_image(
         ":web_index_layer",
     ],
 )
-
-docker_push(
-    name = "simhospital_image_push",
-    image = ":simhospital_container_image",
-    registry = "gcr.io",
-    repository = "$(PROJECT_ID)/simhospital",
-    tag = "latest",
-)
