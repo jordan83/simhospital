@@ -8,3 +8,4 @@ steps:
   args: ['tag', ':simhospital_container_image', 'gcr.io/$PROJECT_ID/server']
 # Push the image.
 images: ['gcr.io/$PROJECT_ID/server']
+timeout: 3600s
