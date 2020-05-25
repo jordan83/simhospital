@@ -21,10 +21,6 @@ package(
 
 go_library(
     name = "go_default_library",
-    srcs = ["location.go"],
-    importpath = "github.com/google/simhospital/pkg/test/testlocation",
-    deps = [
-        "//pkg/location:go_default_library",
-        "//pkg/test/testwrite:go_default_library",
-    ],
+    srcs = ["text.go"],
+    importpath = "github.com/google/simhospital/pkg/test/testtext",
 )

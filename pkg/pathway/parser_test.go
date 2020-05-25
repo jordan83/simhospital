@@ -16,11 +16,8 @@ package pathway
 
 import (
 	"fmt"
-	"io/ioutil"
 	"math"
 	"math/rand"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -41,15 +38,64 @@ var (
 
 func newDefaultParser(t *testing.T, now time.Time) *Parser {
 	t.Helper()
-	lm, err := testlocation.NewLocationManager("ED", "Renal")
-	if err != nil {
-		t.Fatalf("testlocation.NewLocationManager(%v, %v) failed with %v", "ED", "Renal", err)
-	}
 	return &Parser{
 		Clock:           testclock.New(now),
 		OrderProfiles:   emptyOrderProfiles,
 		Doctors:         emptyDoctors,
-		LocationManager: lm,
+		LocationManager: testlocation.NewLocationManager(t, "ED", "Renal"),
+	}
+}
+
+func TestFileExtensionValidation(t *testing.T) {
+	p := []byte(`
+pathway1:
+  persons:
+    main_patient:
+      gender: F
+  pathway:
+    - discharge: {}
+`)
+
+	cases := []struct {
+		name    string
+		wantErr bool
+	}{{
+		name: "valid*.yml",
+	}, {
+		name: "valid*.yaml",
+	}, {
+		name: "valid*.json",
+	}, {
+		name:    "no_extension",
+		wantErr: true,
+	}, {
+		name:    "invalid_extension*.jpg",
+		wantErr: true,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := testwrite.BytesToDir(t, []byte(p), tc.name)
+
+			p := newDefaultParser(t, time.Now())
+
+			pathways, err := p.ParsePathways(dir)
+
+			// If a filename is valid, we expect its pathways to be parsed.
+			// Otherwise, we expect an error because no files were parsed.
+			if (err != nil) != tc.wantErr {
+				t.Errorf("ParsePathways(%s) got err=%v; want error? %t", dir, err, tc.wantErr)
+			}
+
+			if err != nil || tc.wantErr {
+				return
+			}
+
+			want := 1
+			if got := len(pathways); got != want {
+				t.Errorf("len(pathways) got %d pathways, %d 1", got, want)
+			}
+		})
 	}
 }
 
@@ -257,19 +303,9 @@ pathway2:
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			mainDir, err := ioutil.TempDir("", "pathways")
-			if err != nil {
-				t.Fatalf("ioutil.TempDir() failed with %v", err)
-			}
-			defer os.RemoveAll(mainDir)
-
-			tmp1 := filepath.Join(mainDir, "pathway1")
-			testwrite.BytesToFileWithName(t, p1, tmp1)
-			defer os.Remove(tmp1)
-
-			tmp2 := filepath.Join(mainDir, "pathway2")
-			testwrite.BytesToFileWithName(t, tc.p2, tmp2)
-			defer os.Remove(tmp2)
+			mainDir := testwrite.TempDir(t)
+			testwrite.BytesToFileInExistingDir(t, p1, mainDir, "pathway1.yml")
+			testwrite.BytesToFileInExistingDir(t, tc.p2, mainDir, "pathway2.yml")
 
 			p := newDefaultParser(t, time.Now())
 
@@ -359,7 +395,6 @@ test_pathway:
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			mainDir := writePathwayToDir(t, tc.pathwayDefinition)
-			defer os.RemoveAll(mainDir)
 
 			_, err := p.ParsePathways(mainDir)
 			gotErr := err != nil
@@ -1525,7 +1560,6 @@ pathway_autogenerate:
 `)
 
 	mainDir := writePathwayToDir(t, pathwayDefinition)
-	defer os.RemoveAll(mainDir)
 
 	p := newDefaultParser(t, time.Now())
 	pathways, err := p.ParsePathways(mainDir)
@@ -1687,7 +1721,6 @@ random_pathway:
     - discharge: {}
 `)
 	mainDir := writePathwayToDir(t, pathwayDefinition)
-	defer os.RemoveAll(mainDir)
 
 	p := newDefaultParser(t, time.Now())
 	pathways, err := p.ParsePathways(mainDir)
@@ -1782,7 +1815,6 @@ type parseFunc struct {
 func parsePathwayDefinition(t *testing.T, pathwayDefinition []byte) map[parseFunc]Pathway {
 	t.Helper()
 	mainDir := writePathwayToDir(t, pathwayDefinition)
-	defer os.RemoveAll(mainDir)
 
 	p := newDefaultParser(t, time.Now())
 	pathways, err := p.ParsePathways(mainDir)
@@ -1815,12 +1847,5 @@ func parsePathwayDefinition(t *testing.T, pathwayDefinition []byte) map[parseFun
 
 func writePathwayToDir(t *testing.T, pathwayDefinition []byte) string {
 	t.Helper()
-	mainDir, err := ioutil.TempDir("", "pathways")
-	if err != nil {
-		t.Fatalf("ioutil.TempDir() failed with %v", err)
-	}
-
-	tmpF := filepath.Join(mainDir, "pathway1")
-	testwrite.BytesToFileWithName(t, pathwayDefinition, tmpF)
-	return mainDir
+	return testwrite.BytesToDir(t, pathwayDefinition, "pathway1.yml")
 }

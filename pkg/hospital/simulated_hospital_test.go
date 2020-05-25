@@ -17,7 +17,6 @@ package hospital_test
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"math"
 	"math/rand"
 	"os"
@@ -33,7 +32,6 @@ import (
 	"github.com/google/simhospital/pkg/hardcoded"
 	"github.com/google/simhospital/pkg/hl7"
 	. "github.com/google/simhospital/pkg/hospital"
-	"github.com/google/simhospital/pkg/location"
 	"github.com/google/simhospital/pkg/logging"
 	"github.com/google/simhospital/pkg/message"
 	"github.com/google/simhospital/pkg/pathway"
@@ -46,6 +44,7 @@ import (
 	"github.com/google/simhospital/pkg/test/testlocation"
 	"github.com/google/simhospital/pkg/test/testmetrics"
 	"github.com/google/simhospital/pkg/test/teststate"
+	"github.com/google/simhospital/pkg/test/testwrite"
 )
 
 var (
@@ -1741,7 +1740,7 @@ func TestStartPathway_OccupiedBed(t *testing.T) {
 				testPathwayName: {Pathway: tc.steps},
 			}
 			cfg := Config{
-				LocationManager: locationManager(t, testLoc, testLocAE),
+				LocationManager: testlocation.NewLocationManager(t, testLoc, testLocAE),
 			}
 			hospital := newHospital(t, cfg, pathways)
 			defer hospital.Close()
@@ -3597,7 +3596,7 @@ func TestRunPathwayCustomPathwayManager(t *testing.T) {
 	pm := &testPathwayManager{}
 	cfg := Config{
 		PathwayManager:  pm,
-		LocationManager: locationManager(t, testLoc, testLocAE),
+		LocationManager: testlocation.NewLocationManager(t, testLoc, testLocAE),
 		DataFiles:       test.DataFiles[test.Test],
 	}
 	hospital := testhospital.WithTime(t, testhospital.Config{Config: cfg, Arguments: testhospital.Arguments}, now)
@@ -3625,19 +3624,8 @@ func TestRunPathwayWithHardcodedMessage(t *testing.T) {
 		}},
 	}
 
-	dirName := "hardcoded_messages"
-	dir, err := ioutil.TempDir("", dirName)
-	if err != nil {
-		t.Fatalf("TempDir(%q, %q) failed with %v", "", dirName, err)
-	}
-	defer os.RemoveAll(dir)
-	file, err := ioutil.TempFile(dir, dirName)
-	if err != nil {
-		t.Fatalf("TempFile(%q, %q) failed with %v", dir, dirName, err)
-	}
-	if _, err = file.Write([]byte(hardcodedMessageYml)); err != nil {
-		t.Fatalf("Write(%s) failed with %v", hardcodedMessageYml, err)
-	}
+	seed := "hardcoded_messages.yml"
+	dir := testwrite.BytesToDir(t, []byte(hardcodedMessageYml), seed)
 	msgControlGen := &header.MessageControlGenerator{}
 	hardcodedMessagesManager, err := hardcoded.NewManager(dir, msgControlGen)
 	if err != nil {
@@ -3683,7 +3671,7 @@ func hospitalWithTime(t *testing.T, cfg Config, pathways map[string]pathway.Path
 		t.Fatalf("pathway.NewDistributionManager(%v,%v,%v) failed with %v", pathways, nil, nil, err)
 	}
 	cfg.PathwayManager = pm
-	cfg.LocationManager = locationManager(t, testLoc, testLocAE)
+	cfg.LocationManager = testlocation.NewLocationManager(t, testLoc, testLocAE)
 	return testhospital.WithTime(t, testhospital.Config{Config: cfg, Arguments: testhospital.Arguments}, now)
 }
 
@@ -4139,13 +4127,4 @@ func TestStartNextPathway(t *testing.T) {
 			t.Errorf("countMessageLen[%v] = %d, want within %.1f of %d", k, v, delta, want)
 		}
 	}
-}
-
-func locationManager(t *testing.T, locations ...string) *location.Manager {
-	t.Helper()
-	m, err := testlocation.NewLocationManager(locations...)
-	if err != nil {
-		t.Fatalf("testlocation.NewLocationManager(%v) failed with %v", locations, err)
-	}
-	return m
 }

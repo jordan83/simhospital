@@ -16,7 +16,6 @@ package hardcoded
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -26,6 +25,7 @@ import (
 	"github.com/google/simhospital/pkg/generator/header"
 	"github.com/google/simhospital/pkg/hl7"
 	"github.com/google/simhospital/pkg/message"
+	"github.com/google/simhospital/pkg/test/testwrite"
 )
 
 const (
@@ -97,28 +97,66 @@ func TestNewManager(t *testing.T) {
 		description string
 		yml         string
 		wantErr     bool
-	}{
-		{
-			description: "success",
-			yml:         missingPIDYml,
-		}, {
-			description: "no hardcoded messages",
-			yml:         "",
-			wantErr:     true,
-		}, {
-			description: "re-declared message name",
-			yml:         fmt.Sprintf("%s\n\n%s", missingPIDYml, missingPIDYml),
-			wantErr:     true,
-		},
-	}
+	}{{
+		description: "success",
+		yml:         missingPIDYml,
+	}, {
+		description: "no hardcoded messages",
+		yml:         "",
+		wantErr:     true,
+	}, {
+		description: "re-declared message name",
+		yml:         fmt.Sprintf("%s\n\n%s", missingPIDYml, missingPIDYml),
+		wantErr:     true,
+	}}
 
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
 			dir := writeYmlToFile(t, tc.yml)
-			defer os.RemoveAll(dir)
 			mcg := &header.MessageControlGenerator{}
 			if _, err := NewManager(dir, mcg); (err != nil) != tc.wantErr {
 				t.Errorf("NewManager(%q, %v) got err %v, want err? %t", tc.yml, mcg, err, tc.wantErr)
+			}
+		})
+	}
+}
+
+func TestFileExtensionValidation(t *testing.T) {
+	tests := []struct {
+		name    string
+		wantErr bool
+	}{{
+		name: "valid*.yml",
+	}, {
+		name: "valid*.yaml",
+	}, {
+		name:    "no_extension",
+		wantErr: true,
+	}, {
+		name:    "invalid_extension*.jpg",
+		wantErr: true,
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := testwrite.BytesToDir(t, []byte(nhsYML), tc.name)
+
+			mcg := &header.MessageControlGenerator{}
+			mgr, err := NewManager(dir, mcg)
+
+			// If a filename is valid, we expect it to be parsed into messages.
+			// Otherwise, we expect an error because no files were parsed.
+			if (err != nil) != tc.wantErr {
+				t.Errorf("NewManager(%s, %v) got err %v, want err? %t", dir, mcg, err, tc.wantErr)
+			}
+
+			if err != nil || tc.wantErr {
+				return
+			}
+
+			want := 1
+			if got := len(mgr.messages); got != want {
+				t.Errorf("len(mgr.messages) got %d messages, want %d", got, want)
 			}
 		})
 	}
@@ -130,54 +168,51 @@ func TestMessage(t *testing.T) {
 		yml         string
 		toInclude   string
 		want        *message.HL7Message
-	}{
-		{
-			description: missingPIDName,
-			yml:         missingPIDYml,
-			toInclude:   ".*",
-			want: &message.HL7Message{
-				Type:    &message.Type{MessageType: "ADT", TriggerEvent: "A03"},
-				Message: missingPIDFieldsSet,
-			},
-		}, {
-			description: oruName,
-			yml:         oruYML,
-			toInclude:   ".*ORU.*",
-			want: &message.HL7Message{
-				Type:    &message.Type{MessageType: "ORU", TriggerEvent: "R01"},
-				Message: oruFieldsSet,
-			},
-		}, {
-			description: nhsName,
-			yml:         nhsYML,
-			toInclude:   ".*NHS.*,.*ORU.*",
-			want: &message.HL7Message{
-				Type:    &message.Type{MessageType: "ADT", TriggerEvent: "A01"},
-				Message: nhsFieldsSet,
-			},
-		}, {
-			description: oruName,
-			yml:         oruYML,
-			toInclude:   ".*NHS.*,.*ORU.*",
-			want: &message.HL7Message{
-				Type:    &message.Type{MessageType: "ORU", TriggerEvent: "R01"},
-				Message: oruFieldsSet,
-			},
-		}, {
-			description: fmt.Sprintf("%s,%s", oruName, nhsName),
-			yml:         fmt.Sprintf("%s\n%s", oruYML, nhsYML),
-			toInclude:   ".*ORU.*",
-			want: &message.HL7Message{
-				Type:    &message.Type{MessageType: "ORU", TriggerEvent: "R01"},
-				Message: oruFieldsSet,
-			},
+	}{{
+		description: missingPIDName,
+		yml:         missingPIDYml,
+		toInclude:   ".*",
+		want: &message.HL7Message{
+			Type:    &message.Type{MessageType: "ADT", TriggerEvent: "A03"},
+			Message: missingPIDFieldsSet,
 		},
-	}
+	}, {
+		description: oruName,
+		yml:         oruYML,
+		toInclude:   ".*ORU.*",
+		want: &message.HL7Message{
+			Type:    &message.Type{MessageType: "ORU", TriggerEvent: "R01"},
+			Message: oruFieldsSet,
+		},
+	}, {
+		description: nhsName,
+		yml:         nhsYML,
+		toInclude:   ".*NHS.*,.*ORU.*",
+		want: &message.HL7Message{
+			Type:    &message.Type{MessageType: "ADT", TriggerEvent: "A01"},
+			Message: nhsFieldsSet,
+		},
+	}, {
+		description: oruName,
+		yml:         oruYML,
+		toInclude:   ".*NHS.*,.*ORU.*",
+		want: &message.HL7Message{
+			Type:    &message.Type{MessageType: "ORU", TriggerEvent: "R01"},
+			Message: oruFieldsSet,
+		},
+	}, {
+		description: fmt.Sprintf("%s,%s", oruName, nhsName),
+		yml:         fmt.Sprintf("%s\n%s", oruYML, nhsYML),
+		toInclude:   ".*ORU.*",
+		want: &message.HL7Message{
+			Type:    &message.Type{MessageType: "ORU", TriggerEvent: "R01"},
+			Message: oruFieldsSet,
+		},
+	}}
 
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
 			dir := writeYmlToFile(t, tc.yml)
-			defer os.RemoveAll(dir)
 			mcg := &header.MessageControlGenerator{}
 			mgr, err := NewManager(dir, mcg)
 			if err != nil {
@@ -197,7 +232,6 @@ func TestMessage(t *testing.T) {
 
 func TestMessageReturnsUniqueMessages(t *testing.T) {
 	dir := writeYmlToFile(t, missingPIDYml)
-	defer os.RemoveAll(dir)
 	mcg := &header.MessageControlGenerator{}
 	mgr, err := NewManager(dir, mcg)
 	if err != nil {
@@ -223,38 +257,35 @@ func TestMessageErrors(t *testing.T) {
 		description string
 		yml         string
 		toInclude   string
-	}{
-		{
-			description: fmt.Sprintf("no matching messages: %s", nhsName),
-			yml:         nhsYML,
-			toInclude:   ".*ORU.*",
-		}, {
-			description: fmt.Sprintf("no matching messages: %s", missingPIDName),
-			yml:         missingPIDYml,
-			toInclude:   ".*NHS.*,.*ORU.*",
-		}, {
-			description: "empty regex",
-			yml:         nhsYML,
-			toInclude:   "",
-		}, {
-			description: "list of empty or invalid regex",
-			yml:         nhsYML,
-			toInclude:   ",[",
-		}, {
-			description: "unparsable message",
-			yml:         unparsableYML,
-			toInclude:   ".*",
-		}, {
-			description: "no message type",
-			yml:         noMessageTypeYML,
-			toInclude:   ".*",
-		},
-	}
+	}{{
+		description: fmt.Sprintf("no matching messages: %s", nhsName),
+		yml:         nhsYML,
+		toInclude:   ".*ORU.*",
+	}, {
+		description: fmt.Sprintf("no matching messages: %s", missingPIDName),
+		yml:         missingPIDYml,
+		toInclude:   ".*NHS.*,.*ORU.*",
+	}, {
+		description: "empty regex",
+		yml:         nhsYML,
+		toInclude:   "",
+	}, {
+		description: "list of empty or invalid regex",
+		yml:         nhsYML,
+		toInclude:   ",[",
+	}, {
+		description: "unparsable message",
+		yml:         unparsableYML,
+		toInclude:   ".*",
+	}, {
+		description: "no message type",
+		yml:         noMessageTypeYML,
+		toInclude:   ".*",
+	}}
 
 	for _, tc := range tests {
 		t.Run(fmt.Sprintf("NewManager(%q)", tc.description), func(t *testing.T) {
 			dir := writeYmlToFile(t, tc.yml)
-			defer os.RemoveAll(dir)
 			mcg := &header.MessageControlGenerator{}
 			mgr, err := NewManager(dir, mcg)
 			if err != nil {
@@ -272,19 +303,7 @@ func TestMessageErrors(t *testing.T) {
 func writeYmlToFile(t *testing.T, ymls ...string) string {
 	t.Helper()
 	yml := strings.Join(ymls, "\r")
-	seed := "hardcoded_messages"
-	dir, err := ioutil.TempDir("", seed)
-	if err != nil {
-		t.Fatalf("TempDir(%q, %q) failed with %v", "", seed, err)
-	}
-	file, err := ioutil.TempFile(dir, seed)
-	if err != nil {
-		t.Fatalf("TempFile(%q, %q) failed with %v", dir, seed, err)
-	}
-	if _, err = file.Write([]byte(yml)); err != nil {
-		t.Fatalf("Write(%s) failed with %v", yml, err)
-	}
-	return dir
+	return testwrite.BytesToDir(t, []byte(yml), "hardcoded_messages.yml")
 }
 
 func testPerson() *message.Person {
