@@ -5,7 +5,7 @@ steps:
   args: ['run', ':simhospital_container_image']
 # Re-tag the image to the public image tag.
 - name: gcr.io/cloud-builders/docker
-  args: ['tag', 'bazel:simhospital_container_image', 'gcr.io/$PROJECT_ID/simhospital:$COMMIT_SHA']
+  args: ['tag', 'bazel:simhospital_container_image', 'gcr.io/$PROJECT_ID/simhospital:latest']
 # Push the image.
-images: ['gcr.io/$PROJECT_ID/simhospital:$COMMIT_SHA']
+images: ['gcr.io/$PROJECT_ID/simhospital:latest']
 timeout: 1800s
