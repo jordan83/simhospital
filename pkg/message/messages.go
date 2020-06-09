@@ -1133,11 +1133,6 @@ func BuildUpdatePatientADTA08(h *HeaderInfo, p *PatientInfo, eventTime time.Time
 		return nil, errors.Wrap(err, "cannot build PID segment")
 	}
 	segments = append(segments, pid)
-	pd1, err := BuildPD1(p)
-	if err != nil {
-		return nil, errors.Wrap(err, "cannot build PD1 segment")
-	}
-	segments = append(segments, pd1)
 	segments = append(segments, BuildPseudoPV1())
 	for id, al := range p.Allergies {
 		al1, err := BuildAL1(id, al)
