@@ -17,7 +17,6 @@
 # they are not picked when Simulated Hospital is running.
 
 simple_admission:
-  percentage_of_patients: 0
   pathway:
     - admission:
         loc: Renal
