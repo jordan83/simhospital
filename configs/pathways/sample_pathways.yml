@@ -21,6 +21,9 @@ simple_admission:
   pathway:
     - admission:
         loc: Renal
+    - update_person:
+        diagnoses:
+          - description: RANDOM
 
 discharge_at_timestamp:
   percentage_of_patients: 0
