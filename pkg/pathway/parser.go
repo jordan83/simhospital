@@ -16,16 +16,15 @@ package pathway
 
 import (
 	"fmt"
-	"io/ioutil"
-	"path"
 	"path/filepath"
 
-	"github.com/pkg/errors"
-	"gopkg.in/yaml.v2"
 	"github.com/google/simhospital/pkg/clock"
 	"github.com/google/simhospital/pkg/doctor"
+	"github.com/google/simhospital/pkg/files"
 	"github.com/google/simhospital/pkg/location"
 	"github.com/google/simhospital/pkg/orderprofile"
+	"github.com/pkg/errors"
+	"gopkg.in/yaml.v2"
 )
 
 // UnknownPathwayName is the default pathway name, if it is not explicitly specified.
@@ -58,7 +57,7 @@ type Parser struct {
 func (p *Parser) ParsePathways(pathwaysDir string) (map[string]Pathway, error) {
 	logLocal := log.WithField("pathway_dir", pathwaysDir)
 	logLocal.Info("Parsing pathways from directory")
-	files, err := ioutil.ReadDir(pathwaysDir)
+	files, err := files.List(pathwaysDir)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to read pathways files from %s", pathwaysDir)
 	}
@@ -71,10 +70,9 @@ func (p *Parser) ParsePathways(pathwaysDir string) (map[string]Pathway, error) {
 			continue
 		}
 
-		filePath := path.Join(pathwaysDir, file.Name())
 		logLocal := logLocal.WithField("pathway_file", file.Name())
 		logLocal.Info("Parsing pathways from file")
-		p, err := p.parse(filePath)
+		p, err := p.parse(file)
 		if err != nil {
 			return nil, errors.Wrapf(err, "Failed to parse pathway file %s", file.Name())
 		}
@@ -138,10 +136,10 @@ func (p *Parser) ParseSinglePathway(pathwayDefinition []byte) (Pathway, error) {
 	return pathway, nil
 }
 
-func (p *Parser) parse(fileName string) (map[string]Pathway, error) {
+func (p *Parser) parse(file files.File) (map[string]Pathway, error) {
 	pathways := map[string]Pathway{}
 
-	data, err := ioutil.ReadFile(fileName)
+	data, err := file.Read()
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot parse pathways file")
 	}
@@ -158,7 +156,7 @@ func (p *Parser) parse(fileName string) (map[string]Pathway, error) {
 		pathway.Init(name)
 		pathways[name] = pathway
 		if err := pathway.Valid(p.Clock, p.OrderProfiles, p.Doctors, p.LocationManager, p.Valid); err != nil {
-			log.WithField("pathway_file", fileName).WithField("pathway_name", name).
+			log.WithField("pathway_file", file.FullPath()).WithField("pathway_name", name).
 				WithError(err).Error("Invalid pathway")
 			invalidPathways = append(invalidPathways, name)
 			allErrors = append(allErrors, err)

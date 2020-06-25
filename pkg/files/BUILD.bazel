@@ -1,0 +1,16 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+package(
+    default_visibility = ["//visibility:public"],
+    licenses = ["notice"],
+)
+
+go_library(
+    name = "go_default_library",
+    srcs = ["files.go"],
+    importpath = "github.com/google/simhospital/pkg/files",
+    deps = [
+        "@com_google_cloud_go_storage//:go_default_library",
+        "@org_golang_google_api//iterator:go_default_library",
+    ],
+)
